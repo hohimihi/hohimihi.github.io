@@ -107,7 +107,7 @@ async function fetchWithRetry(path, query) {
 
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
-    const cacheKey = 'roblox_cache_v6'; // Clear old state
+    const cacheKey = 'roblox_cache_v7'; // Clear old state
     const CACHE_TTL = 600000; // 10 minutes
 
     try {
@@ -119,71 +119,80 @@ async function fetchGames() {
     } catch (e) { }
 
     try {
-        // 1. Get Universe IDs for each Place ID
-        const universeIds = await Promise.all(gameConfigs.map(async config => {
-            // Using the user-suggested apis.roblox.com endpoint
-            const data = await fetchWithRetry(`https://apis.roblox.com/universes/v1/places/${config.placeId}/universe`, '');
-            return data.universeId;
+        // 1. Get Universe IDs (Place -> Universe)
+        const universeResults = await Promise.all(gameConfigs.map(async config => {
+            try {
+                const data = await fetchWithRetry(`https://apis.roblox.com/universes/v1/places/${config.placeId}/universe`, '');
+                return { placeId: config.placeId, universeId: data.universeId, role: config.role };
+            } catch (e) {
+                console.warn(`Universe ID fetch failed for ${config.placeId}: ${e.message}`);
+                return { placeId: config.placeId, universeId: null, role: config.role };
+            }
         }));
 
-        const uniqueUniverses = [...new Set(universeIds)].filter(id => id).join(',');
+        const validUniverseIds = universeResults.map(r => r.universeId).filter(id => id);
+        if (validUniverseIds.length === 0) throw new Error('No valid universe IDs found');
+        const uniqueIds = [...new Set(validUniverseIds)].join(',');
 
-        // 2. Fetch Game Info & Thumbnails
-        const [gamesData, thumbData] = await Promise.all([
-            fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${uniqueUniverses}`),
-            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${uniqueUniverses}&countPerUniverse=1&size=768x432&format=Webp`)
+        // 2. Fetch Detailed Info & Thumbnails
+        const [gamesRes, thumbRes] = await Promise.all([
+            fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${uniqueIds}`),
+            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${uniqueIds}&countPerUniverse=1&size=768x432&format=Webp`)
         ]);
 
-        const gamesList = gamesData.data || [];
-        const thumbsList = thumbData.data || [];
-        const thumbs = {};
+        const gamesList = gamesRes.data || [];
+        const thumbsList = thumbRes.data || [];
 
-        // FIXED: Use universeId as the mapping key
-        thumbsList.forEach(t => {
-            if (t.thumbnails?.[0]?.imageUrl) {
-                thumbs[t.universeId] = t.thumbnails[0].imageUrl;
+        // Correctly handle the multiget mapping
+        const thumbsMap = {};
+        thumbsList.forEach(item => {
+            if (item.universeId && item.thumbnails?.[0]?.imageUrl) {
+                thumbsMap[item.universeId] = item.thumbnails[0].imageUrl;
             }
         });
 
-        // 3. Map back
-        const results = gameConfigs.map((config, i) => {
-            const uId = universeIds[i];
-            const game = gamesList.find(g => String(g.id) === String(uId));
+        // 3. Assemble Results
+        const finalGames = universeResults.map(ur => {
+            // Only process if a universeId was successfully retrieved
+            if (!ur.universeId) return null;
 
-            if (game) {
-                return {
-                    name: game.name,
-                    creator: game.creator.name,
-                    visits: game.visits,
-                    playing: game.playing,
-                    role: config.role,
-                    thumbnail: thumbs[uId] || null, // Corrected mapping
-                    url: `https://www.roblox.com/games/${config.placeId}`
-                };
-            }
-            return null;
+            const gameData = gamesList.find(g => String(g.id) === String(ur.universeId));
+            if (!gameData) return null;
+
+            return {
+                name: gameData.name,
+                creator: gameData.creator.name,
+                visits: gameData.visits,
+                playing: gameData.playing,
+                role: ur.role,
+                thumbnail: thumbsMap[ur.universeId] || null,
+                url: `https://www.roblox.com/games/${ur.placeId}`
+            };
         }).filter(Boolean);
 
-        if (results.length > 0) {
-            localStorage.setItem(cacheKey, JSON.stringify({ data: results, timestamp: Date.now() }));
-            return results;
+        if (finalGames.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify({ data: finalGames, timestamp: Date.now() }));
+            return finalGames;
         }
-        throw new Error('No match');
+        throw new Error('No games found after processing');
 
     } catch (e) {
-        console.warn('Using High-Quality Fallback:', e.message);
+        console.warn('Live fetch failed, using fallback:', e.message);
         const fallbacks = [
             { name: "Obby But You're Glitched", visits: 235400, playing: 42 },
             { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130 },
             { name: "Space Station Tycoon", visits: 2600000, playing: 15 }
         ];
-        return gameConfigs.map((g, i) => ({
-            ...(fallbacks[i] || { name: 'Roblox Project', visits: 0, playing: 0 }),
-            creator: 'hohimihi',
-            role: g.role,
-            thumbnail: null,
-            url: `https://www.roblox.com/games/${g.placeId}`
-        }));
+        return gameConfigs.map((g, i) => {
+            const data = fallbacks[i] || { name: `Project ${g.placeId}`, visits: 0, playing: 0 };
+            return {
+                ...data,
+                creator: 'hohimihi',
+                role: g.role,
+                thumbnail: null,
+                url: `https://www.roblox.com/games/${g.placeId}`
+            };
+        });
     }
 }
 
