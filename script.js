@@ -88,69 +88,61 @@ async function fetchWithTimeout(url, options, timeout = 7000) {
     }
 }
 
-async function fetchWithRetry(baseUrl, endpoints) {
+async function fetchWithRetry(path, query) {
     for (const proxy of PROXIES) {
         try {
-            const url = proxy + encodeURIComponent(baseUrl + endpoints);
+            const baseUrl = path.startsWith('http') ? path : `https://games.roblox.com/v1/${path}`;
+            const url = proxy + encodeURIComponent(baseUrl + query);
             const res = await fetchWithTimeout(url);
             if (res.ok) {
                 const data = await res.json();
-                // Handle AllOrigins wrapping if it happens
                 return data.contents ? JSON.parse(data.contents) : data;
             }
         } catch (e) {
-            console.warn(`Proxy ${proxy} failed, trying next...`);
+            console.warn(`Proxy ${proxy} failed for ${path}`);
         }
     }
-    throw new Error('All proxies failed');
+    throw new Error(`All proxies failed for ${path}`);
 }
 
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
-    const cacheKey = 'roblox_games_cache';
-    const CACHE_TTL = 300000; // 5 minutes
+    const cacheKey = 'roblox_cache_v5'; // Bumped version to clear old fallbacks
+    const CACHE_TTL = 600000; // 10 minutes
 
-    // 0. Check Cache
     try {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
             const { data, timestamp } = JSON.parse(cached);
-            if (Date.now() - timestamp < CACHE_TTL) {
-                console.log('Using cached Roblox data');
-                return data;
-            }
+            if (Date.now() - timestamp < CACHE_TTL) return data;
         }
-    } catch (e) { console.warn('Cache read error', e); }
+    } catch (e) { }
 
     try {
-        const placeIds = gameConfigs.map(g => g.placeId).join(',');
+        // 1. Get Universe IDs for each Place ID
+        const universeIds = await Promise.all(gameConfigs.map(async config => {
+            // Using the user-suggested apis.roblox.com endpoint
+            const data = await fetchWithRetry(`https://apis.roblox.com/universes/v1/places/${config.placeId}/universe`, '');
+            return data.universeId;
+        }));
 
-        // 1. Get Universe IDs
-        const placesData = await fetchWithRetry('https://games.roblox.com/v1/games/', `multiget-place-details?placeIds=${placeIds}`);
-        const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
-
-        if (!Array.isArray(places) || places.length === 0) throw new Error('No place data');
-
-        const universeIds = places.map(p => p.universeId).filter(id => id).join(',');
+        const uniqueUniverses = [...new Set(universeIds)].filter(id => id).join(',');
 
         // 2. Fetch Game Info & Thumbnails
         const [gamesData, thumbData] = await Promise.all([
-            fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${universeIds}`),
-            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=1&size=768x432&format=Webp`)
+            fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${uniqueUniverses}`),
+            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${uniqueUniverses}&countPerUniverse=1&size=768x432&format=Webp`)
         ]);
 
         const gamesList = gamesData.data || [];
         const thumbsList = thumbData.data || [];
-
         const thumbs = {};
-        thumbsList.forEach(t => {
-            if (t.thumbnails?.[0]?.imageUrl) thumbs[t.targetId] = t.thumbnails[0].imageUrl;
-        });
+        thumbsList.forEach(t => { if (t.thumbnails?.[0]?.imageUrl) thumbs[t.targetId] = t.thumbnails[0].imageUrl; });
 
-        // 3. Merge
-        const results = gameConfigs.map(config => {
-            const place = places.find(p => String(p.placeId) === String(config.placeId));
-            const game = gamesList.find(g => String(g.id) === String(place?.universeId));
+        // 3. Map back
+        const results = gameConfigs.map((config, i) => {
+            const uId = universeIds[i];
+            const game = gamesList.find(g => String(g.id) === String(uId));
 
             if (game) {
                 return {
@@ -170,27 +162,22 @@ async function fetchGames() {
             localStorage.setItem(cacheKey, JSON.stringify({ data: results, timestamp: Date.now() }));
             return results;
         }
-        throw new Error('No games matched');
+        throw new Error('No match');
 
     } catch (e) {
-        console.warn('Live fetch failed, using realistic fallback:', e.message);
-
-        // Final fallback with REAL names as requested
-        return gameConfigs.map((g, i) => {
-            const fallbacks = [
-                { name: "Obby But You're Glitched", visits: 235400, playing: 42 },
-                { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130 },
-                { name: "Space Station Tycoon", visits: 2600000, playing: 15 }
-            ];
-            const data = fallbacks[i] || { name: `Project ${g.placeId}`, visits: 0, playing: 0 };
-            return {
-                ...data,
-                creator: 'hohimihi',
-                role: g.role,
-                thumbnail: null,
-                url: `https://www.roblox.com/games/${g.placeId}`
-            };
-        });
+        console.warn('Using High-Quality Fallback:', e.message);
+        const fallbacks = [
+            { name: "Obby But You're Glitched", visits: 235400, playing: 42 },
+            { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130 },
+            { name: "Space Station Tycoon", visits: 2600000, playing: 15 }
+        ];
+        return gameConfigs.map((g, i) => ({
+            ...(fallbacks[i] || { name: 'Roblox Project', visits: 0, playing: 0 }),
+            creator: 'hohimihi',
+            role: g.role,
+            thumbnail: null,
+            url: `https://www.roblox.com/games/${g.placeId}`
+        }));
     }
 }
 
