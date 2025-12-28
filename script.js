@@ -4,9 +4,9 @@
 
 const CONFIG = {
     games: [
-        { placeId: 130967462823996, role: "Owner" },
-        { placeId: 14958096162, role: "Head Developer" },
-        { placeId: 13421499226, role: "Developer" }
+        { placeId: "130967462823996", role: "Owner" },
+        { placeId: "14958096162", role: "Head Developer" },
+        { placeId: "13421499226", role: "Developer" }
     ],
 
     reviews: [
@@ -96,8 +96,7 @@ async function fetchGames() {
         if (!placeRes.ok) throw new Error(`Place fetch failed: ${placeRes.status}`);
 
         const placesData = await placeRes.json();
-        // Defensive check: AllOrigins might wrap data or Roblox might return error object
-        const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
+        const places = Array.isArray(placesData) ? placesData : (placesData.data || (placesData.contents ? JSON.parse(placesData.contents).data : []));
 
         if (!Array.isArray(places) || places.length === 0) {
             console.warn('API returned non-array or empty data:', placesData);
@@ -160,7 +159,7 @@ async function fetchGames() {
     } catch (e) {
         console.warn('Live fetch failed, using fallback mode:', e.message);
         return gameConfigs.map((g, i) => ({
-            name: ['Velocity Outbreak', 'Cyber City', 'Space Station'][i] || `Project ${i + 1}`,
+            name: ['Main Project', 'Active Development', 'Work in Progress'][i] || `Project ${i + 1}`,
             creator: 'hohimihi',
             visits: [5200000, 1800000, 450000][i] || 0,
             playing: [1400, 230, 85][i] || 0,
