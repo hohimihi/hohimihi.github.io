@@ -107,7 +107,7 @@ async function fetchWithRetry(path, query) {
 
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
-    const cacheKey = 'roblox_cache_v5'; // Bumped version to clear old fallbacks
+    const cacheKey = 'roblox_cache_v6'; // Clear old state
     const CACHE_TTL = 600000; // 10 minutes
 
     try {
@@ -137,7 +137,13 @@ async function fetchGames() {
         const gamesList = gamesData.data || [];
         const thumbsList = thumbData.data || [];
         const thumbs = {};
-        thumbsList.forEach(t => { if (t.thumbnails?.[0]?.imageUrl) thumbs[t.targetId] = t.thumbnails[0].imageUrl; });
+
+        // FIXED: Use universeId as the mapping key
+        thumbsList.forEach(t => {
+            if (t.thumbnails?.[0]?.imageUrl) {
+                thumbs[t.universeId] = t.thumbnails[0].imageUrl;
+            }
+        });
 
         // 3. Map back
         const results = gameConfigs.map((config, i) => {
@@ -151,7 +157,7 @@ async function fetchGames() {
                     visits: game.visits,
                     playing: game.playing,
                     role: config.role,
-                    thumbnail: thumbs[game.id] || null,
+                    thumbnail: thumbs[uId] || null, // Corrected mapping
                     url: `https://www.roblox.com/games/${config.placeId}`
                 };
             }
@@ -201,7 +207,7 @@ function renderGames(games) {
     grid.innerHTML = games.map(game => `
         <a href="${game.url}" target="_blank" class="game-card">
             <div class="game-thumb-wrap">
-                <img class="game-thumb" src="${game.thumbnail || 'https://t0.rbxcdn.com/180DAY-b8ce6c56be16d9008ef43278d0b64d19/768/432/Image/Webp/noFilter'}" alt="${game.name}" onerror="this.style.background='linear-gradient(135deg, #1f1408, #2e1d05)'">
+                <img class="game-thumb" src="${game.thumbnail || ''}" alt="${game.name}" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; this.classList.add('broken');">
             </div>
             <div class="game-info">
                 <div class="game-name">${game.name}</div>

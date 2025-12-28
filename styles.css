@@ -587,15 +587,24 @@ body {
 }
 
 .game-thumb-wrap {
-    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-hover));
+    /* Fallback gradient */
     overflow: hidden;
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .game-thumb {
     width: 100%;
-    aspect-ratio: 16/9;
+    height: 100%;
     object-fit: cover;
-    transition: 0.4s;
+    transition: transform 0.5s ease;
+}
+
+.game-thumb.broken {
+    display: none;
 }
 
 .game-card:hover .game-thumb {
