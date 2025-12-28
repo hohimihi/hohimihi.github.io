@@ -11,22 +11,25 @@ const CONFIG = {
 
     reviews: [
         {
-            text: "Delivered exactly what was promised. Clean code, on time, and great communication throughout the project. Would definitely hire again.",
-            name: "RiftGaming",
-            role: "Game Owner",
-            initial: "R"
+            text: "chill guy did a pretty nice job",
+            name: "sapoperro",
+            role: "Roblox Developer",
+            avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C87193AB6608680DAED0A274ABA660B6-Png/150/150/AvatarHeadshot/Webp/isCircular",
+            profileUrl: "https://www.roblox.com/users/352535647/profile"
         },
         {
-            text: "Helped optimize our game's performance significantly. Scripts are clean and well-documented. Highly recommended.",
-            name: "DevStudio",
-            role: "Dev Team Lead",
-            initial: "D"
+            text: "Did an awesome job, polished everything up.",
+            name: "Shrani_Blind",
+            role: "Game Builder",
+            avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-784A29CE5C3330C731E594A20C8F2983-Png/150/150/AvatarHeadshot/Webp/isCircular",
+            profileUrl: "https://www.roblox.com/users/2357507092/profile"
         },
         {
-            text: "Professional and skilled developer. Took our concept and brought it to life exactly how we envisioned it.",
-            name: "PixelForge",
-            role: "Studio Owner",
-            initial: "P"
+            text: "Reliable lad",
+            name: "Drak",
+            role: "Project Manager",
+            avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-558CD38F370DC1E74E87817FA51320C1-Png/150/150/AvatarHeadshot/Webp/isCircular",
+            profileUrl: "https://www.roblox.com/users/2328178033/profile"
         }
     ],
 
@@ -242,14 +245,21 @@ function renderGames(games) {
 function renderReviews() {
     const stack = document.getElementById('reviewsStack');
     const starSvg = '<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+    const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:12px;height:12px;margin-left:4px;color:#4ade80"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
     stack.innerHTML = CONFIG.reviews.map(r => `
         <div class="review-card">
             <div class="review-header">
-                <div class="review-avatar">${r.initial}</div>
+                <a href="${r.profileUrl}" target="_blank" rel="noopener" class="review-link-wrapper">
+                    <div class="review-avatar">
+                        <img src="${r.avatar}" alt="${r.name}" onerror="this.src='https://www.roblox.com/headshot-thumbnail/image?userId=1&width=48&height=48&format=png'">
+                    </div>
+                </a>
                 <div class="review-meta">
-                    <div class="review-name">${r.name}</div>
-                    <div class="review-role">${r.role}</div>
+                    <a href="${r.profileUrl}" target="_blank" rel="noopener" class="review-name-link">
+                        <div class="review-name">${r.name}${checkSvg}</div>
+                    </a>
+                    <div class="review-role">Verified Vouch</div>
                 </div>
                 <div class="review-stars">${starSvg.repeat(5)}</div>
             </div>
