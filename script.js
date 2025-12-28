@@ -72,6 +72,19 @@ function animateCounter(el, target, duration = 2000) {
 
 const PROXY_BASE = 'https://api.allorigins.win/raw?url=';
 
+async function fetchWithTimeout(url, options, timeout = 5000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (e) {
+        clearTimeout(id);
+        throw e;
+    }
+}
+
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
     const placeIds = gameConfigs.map(g => g.placeId);
@@ -79,23 +92,28 @@ async function fetchGames() {
     try {
         // 1. Get Universe IDs from Place IDs
         const placesUrl = encodeURIComponent(`https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIds.join(',')}`);
-        const placeRes = await fetch(`${PROXY_BASE}${placesUrl}`);
-        if (!placeRes.ok) throw new Error('Place fetch failed');
+        const placeRes = await fetchWithTimeout(`${PROXY_BASE}${placesUrl}`);
+        if (!placeRes.ok) throw new Error(`Place fetch failed: ${placeRes.status}`);
 
         const placesData = await placeRes.json();
-        const places = placesData.data || placesData; // Handle potential wrapper diffs
+        // Defensive check: AllOrigins might wrap data or Roblox might return error object
+        const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
 
-        if (!places || places.length === 0) throw new Error('No places found');
+        if (!Array.isArray(places) || places.length === 0) {
+            console.warn('API returned non-array or empty data:', placesData);
+            throw new Error('No valid place data found');
+        }
 
-        const universeIds = places.map(p => p.universeId);
+        const universeIds = places.map(p => p.universeId).filter(id => id);
+        if (universeIds.length === 0) throw new Error('No Universe IDs found');
 
         // 2. Fetch Game Info & Thumbnails in parallel
         const gamesUrl = encodeURIComponent(`https://games.roblox.com/v1/games?universeIds=${universeIds.join(',')}`);
         const thumbsUrl = encodeURIComponent(`https://thumbnails.roblox.com/v1/games/multiget/thumbnails?universeIds=${universeIds.join(',')}&countPerUniverse=1&defaults=true&size=768x432&format=Webp`);
 
         const [gamesRes, thumbRes] = await Promise.all([
-            fetch(`${PROXY_BASE}${gamesUrl}`),
-            fetch(`${PROXY_BASE}${thumbsUrl}`)
+            fetchWithTimeout(`${PROXY_BASE}${gamesUrl}`),
+            fetchWithTimeout(`${PROXY_BASE}${thumbsUrl}`)
         ]);
 
         const gamesData = await gamesRes.json();
@@ -117,7 +135,6 @@ async function fetchGames() {
             const place = places.find(p => p.placeId === config.placeId);
             const game = gamesList.find(g => g.id === place?.universeId);
 
-            // If API returned data, use it. Otherwise use Config/Fallback.
             if (game) {
                 return {
                     name: game.name,
@@ -129,10 +146,9 @@ async function fetchGames() {
                     url: `https://www.roblox.com/games/${config.placeId}`
                 };
             }
-            // Fallback for this specific game if missing in API response
             return {
-                name: `Project ${config.placeId}`,
-                creator: 'Unknown',
+                name: `Game ${config.placeId}`,
+                creator: 'hohimihi',
                 visits: 0,
                 playing: 0,
                 role: config.role,
@@ -142,10 +158,7 @@ async function fetchGames() {
         });
 
     } catch (e) {
-        console.warn('Live fetch failed, using fallback mode:', e);
-
-        // GLOBAL FALLBACK - If the whole fetch crashes (e.g. Proxy down)
-        // Return placeholder data so the site still renders something nice.
+        console.warn('Live fetch failed, using fallback mode:', e.message);
         return gameConfigs.map((g, i) => ({
             name: ['Velocity Outbreak', 'Cyber City', 'Space Station'][i] || `Project ${i + 1}`,
             creator: 'hohimihi',
