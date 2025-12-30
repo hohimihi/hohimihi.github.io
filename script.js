@@ -108,33 +108,30 @@ async function fetchWithRetry(path, query) {
     throw new Error(`All proxies failed for ${path}`);
 }
 
+const FALLBACK_GAMES = [
+    { name: "Obby But You're Glitched", visits: 235400, playing: 42, role: "Owner", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/130967462823996" },
+    { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130, role: "Head Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/14958096162" },
+    { name: "Space Station Tycoon", visits: 2600000, playing: 15, role: "Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/13421499226" }
+];
+
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
-    const cacheKey = 'roblox_cache_v7'; // Clear old state
-    const CACHE_TTL = 600000; // 10 minutes
+    const cacheKey = 'roblox_cache_v7'; // Consistency check
+    const CACHE_TTL = 3600000; // Increase to 1 hour for better UX
 
     try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            const { data, timestamp } = JSON.parse(cached);
-            if (Date.now() - timestamp < CACHE_TTL) return data;
-        }
-    } catch (e) { }
-
-    try {
-        // 1. Get Universe IDs (Place -> Universe)
+        // 1. Get Universe IDs
         const universeResults = await Promise.all(gameConfigs.map(async config => {
             try {
                 const data = await fetchWithRetry(`https://apis.roblox.com/universes/v1/places/${config.placeId}/universe`, '');
                 return { placeId: config.placeId, universeId: data.universeId, role: config.role };
             } catch (e) {
-                console.warn(`Universe ID fetch failed for ${config.placeId}: ${e.message}`);
                 return { placeId: config.placeId, universeId: null, role: config.role };
             }
         }));
 
         const validUniverseIds = universeResults.map(r => r.universeId).filter(id => id);
-        if (validUniverseIds.length === 0) throw new Error('No valid universe IDs found');
+        if (validUniverseIds.length === 0) throw new Error('No valid universe IDs');
         const uniqueIds = [...new Set(validUniverseIds)].join(',');
 
         // 2. Fetch Detailed Info & Thumbnails
@@ -145,8 +142,6 @@ async function fetchGames() {
 
         const gamesList = gamesRes.data || [];
         const thumbsList = thumbRes.data || [];
-
-        // Correctly handle the multiget mapping
         const thumbsMap = {};
         thumbsList.forEach(item => {
             if (item.universeId && item.thumbnails?.[0]?.imageUrl) {
@@ -156,9 +151,7 @@ async function fetchGames() {
 
         // 3. Assemble Results
         const finalGames = universeResults.map(ur => {
-            // Only process if a universeId was successfully retrieved
             if (!ur.universeId) return null;
-
             const gameData = gamesList.find(g => String(g.id) === String(ur.universeId));
             if (!gameData) return null;
 
@@ -177,38 +170,17 @@ async function fetchGames() {
             localStorage.setItem(cacheKey, JSON.stringify({ data: finalGames, timestamp: Date.now() }));
             return finalGames;
         }
-        throw new Error('No games found after processing');
-
     } catch (e) {
-        console.warn('Live fetch failed, using fallback:', e.message);
-        const fallbacks = [
-            { name: "Obby But You're Glitched", visits: 235400, playing: 42 },
-            { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130 },
-            { name: "Space Station Tycoon", visits: 2600000, playing: 15 }
-        ];
-        return gameConfigs.map((g, i) => {
-            const data = fallbacks[i] || { name: `Project ${g.placeId}`, visits: 0, playing: 0 };
-            return {
-                ...data,
-                creator: 'hohimihi',
-                role: g.role,
-                thumbnail: null,
-                url: `https://www.roblox.com/games/${g.placeId}`
-            };
-        });
+        console.warn('Background sync failed:', e.message);
     }
+    return null;
 }
 
 function renderFeaturedGame(game) {
     const el = document.getElementById('featuredGame');
     if (!el || !game) return;
-
     const bgDiv = el.querySelector('.featured-bg');
-
-    if (game.thumbnail) {
-        bgDiv.style.backgroundImage = `url(${game.thumbnail})`;
-    }
-
+    if (game.thumbnail) bgDiv.style.backgroundImage = `url(${game.thumbnail})`;
     el.querySelector('.featured-title').textContent = game.name;
     el.querySelector('.featured-role').textContent = game.role + ' • ' + formatNumber(game.visits) + ' visits';
     el.onclick = () => window.open(game.url, '_blank');
@@ -216,6 +188,7 @@ function renderFeaturedGame(game) {
 
 function renderGames(games) {
     const grid = document.getElementById('gamesGrid');
+    if (!grid) return;
     grid.innerHTML = games.map(game => `
         <a href="${game.url}" target="_blank" class="game-card">
             <div class="game-thumb-wrap">
@@ -270,6 +243,7 @@ function renderReviews() {
 
 function renderCollabs() {
     const grid = document.getElementById('collabsGrid');
+    if (!grid) return;
     grid.innerHTML = CONFIG.collaborations.map(c => `
         <a href="${c.channelUrl}" target="_blank" rel="noopener" class="collab-card">
             <div class="collab-avatar">
@@ -286,12 +260,10 @@ function renderCollabs() {
 function initMobileMenu() {
     const btn = document.querySelector('.mobile-menu-btn');
     const menu = document.querySelector('.mobile-menu');
-
     btn?.addEventListener('click', () => {
         btn.classList.toggle('active');
         menu.classList.toggle('active');
     });
-
     menu?.querySelectorAll('a').forEach(a => {
         a.addEventListener('click', () => {
             btn.classList.remove('active');
@@ -300,14 +272,9 @@ function initMobileMenu() {
     });
 }
 
-async function init() {
-    renderReviews();
-    renderCollabs();
-    initMobileMenu();
-
-    const games = await fetchGames();
+function updateUI(games) {
+    if (!games) return;
     renderGames(games);
-
     const featuredGame = games.find(g => g.role === 'Owner') || games[0];
     renderFeaturedGame(featuredGame);
 
@@ -315,6 +282,38 @@ async function init() {
     const heroVisitsEl = document.getElementById('heroVisits');
     if (heroVisitsEl) {
         animateCounter(heroVisitsEl, totalVisits, 2000);
+    }
+}
+
+async function init() {
+    renderReviews();
+    renderCollabs();
+    initMobileMenu();
+
+    // 1. INSTANT RENDER (Cache or Fallback)
+    let initialGames = FALLBACK_GAMES;
+    const cacheKey = 'roblox_cache_v7';
+    try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            initialGames = data;
+            // If cache is fresh (within 1 hr), we're good
+            if (Date.now() - timestamp < 3600000) {
+                updateUI(initialGames);
+                return;
+            }
+        }
+    } catch (e) { }
+
+    // Show what we have immediately
+    updateUI(initialGames);
+
+    // 2. BACKGROUND REVALIDATE (Silent Update)
+    const liveGames = await fetchGames();
+    if (liveGames) {
+        // Only update if data is fresh and different
+        updateUI(liveGames);
     }
 }
 
