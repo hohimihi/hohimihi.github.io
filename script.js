@@ -187,7 +187,7 @@ function renderFeaturedGame(game) {
     const bgDiv = el.querySelector('.featured-bg');
     if (game.thumbnail) bgDiv.style.backgroundImage = `url(${game.thumbnail})`;
     el.querySelector('.featured-title').textContent = game.name;
-    el.querySelector('.featured-role').textContent = game.role + ' • ' + formatNumber(game.visits) + ' visits';
+    el.querySelector('.featured-role').textContent = `${game.role} • ${formatNumber(game.visits)} visits • ${formatNumber(game.playing)} playing`;
     el.onclick = () => window.open(game.url, '_blank');
 }
 
@@ -209,7 +209,7 @@ function renderGames(games) {
                             ${formatNumber(game.visits)}
                         </span>
                         <span class="game-stat">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             ${formatNumber(game.playing)}
                         </span>
                     </div>
@@ -284,7 +284,8 @@ function initMobileMenu() {
 function updateUI(games) {
     if (!games) return;
     renderGames(games);
-    const featuredGame = games.find(g => g.role === 'Owner') || games[0];
+    // Sort by visits to ensure Arise Army Tycoon (highest) is featured
+    const featuredGame = [...games].sort((a, b) => b.visits - a.visits)[0];
     renderFeaturedGame(featuredGame);
 
     const totalVisits = games.reduce((sum, g) => sum + g.visits, 0);
