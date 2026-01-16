@@ -4,6 +4,7 @@
 
 const CONFIG = {
     games: [
+        { placeId: "94282122066477", role: "Developer" },
         { placeId: "130967462823996", role: "Owner" },
         { placeId: "14958096162", role: "Head Developer" },
         { placeId: "13421499226", role: "Developer" }
@@ -39,14 +40,16 @@ const CONFIG = {
             subscribers: "14.2M",
             project: "Trolling Event",
             channelUrl: "https://www.youtube.com/@flamingo",
-            avatar: "https://yt3.ggpht.com/ytc/AIdro_kAFDQr9bXzOyaLsNXQn4Y7IXUhbSO6E7gNdqYNymh_Rg=s800-c-k-c0x00ffffff-no-rj"
+            videoUrl: "https://www.youtube.com/watch?v=Q-z1mbNQ3jw",
+            avatar: "https://yt3.googleusercontent.com/7cF22TRiceqQr2Cro_X4uhRVnwCdOa2HXiwdBGPnUEqJDuCyr2CykDfDw2rCWjbjaHEdTMUC=s800-c-k-c0x00ffffff-no-rj"
         },
         {
             name: "WaffleTrades",
             subscribers: "379K",
             project: "UGC Event",
             channelUrl: "https://www.youtube.com/@WaffleTrades",
-            avatar: "https://yt3.ggpht.com/mKth_FwPnBKllPFyC7groU3YhRB2gwmvTsLMwZ6R9lb8qOeS8x2LBKV-v_Vppx6VNJgFXNGzCQ=s800-c-k-c0x00ffffff-no-rj"
+            videoUrl: "https://www.youtube.com/watch?v=mNzZROdUA7Y",
+            avatar: "https://yt3.googleusercontent.com/_gZfISAhDSvPL-ayo04b2wVNoJlWsWezFdoVtdhNnlNHy3Eih3zDtO1s-H2ku_6p28RXAaL_DzU=s800-c-k-c0x00ffffff-no-rj"
         }
     ]
 };
@@ -109,6 +112,7 @@ async function fetchWithRetry(path, query) {
 }
 
 const FALLBACK_GAMES = [
+    { name: "Arise Army Tycoon", visits: 1000000, playing: 500, role: "Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/94282122066477" },
     { name: "Obby But You're Glitched", visits: 235400, playing: 42, role: "Owner", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/130967462823996" },
     { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130, role: "Head Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/14958096162" },
     { name: "Space Station Tycoon", visits: 2600000, playing: 15, role: "Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/13421499226" }
@@ -245,7 +249,7 @@ function renderCollabs() {
     const grid = document.getElementById('collabsGrid');
     if (!grid) return;
     grid.innerHTML = CONFIG.collaborations.map(c => `
-        <a href="${c.channelUrl}" target="_blank" rel="noopener" class="collab-card">
+        <div class="collab-card">
             <div class="collab-avatar">
                 <img src="${c.avatar}" alt="${c.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
                 <span class="collab-avatar-fallback" style="display:none">${c.name[0]}</span>
@@ -253,7 +257,11 @@ function renderCollabs() {
             <div class="collab-name">${c.name}</div>
             <div class="collab-subs">${c.subscribers} subscribers</div>
             <div class="collab-project">${c.project}</div>
-        </a>
+            <div class="collab-actions">
+                <a href="${c.channelUrl}" target="_blank" rel="noopener" class="collab-btn secondary">Channel</a>
+                <a href="${c.videoUrl}" target="_blank" rel="noopener" class="collab-btn primary ${c.videoUrl === '#' ? 'disabled' : ''}">Watch Video</a>
+            </div>
+        </div>
     `).join('');
 }
 
