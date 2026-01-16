@@ -4,7 +4,7 @@
 
 const CONFIG = {
     games: [
-        { placeId: "94282122066477", role: "Developer" },
+        { placeId: "94282122066477", role: "Developer", featured: true },
         { placeId: "130967462823996", role: "Owner" },
         { placeId: "14958096162", role: "Head Developer" },
         { placeId: "13421499226", role: "Developer" }
@@ -284,8 +284,11 @@ function initMobileMenu() {
 function updateUI(games) {
     if (!games) return;
     renderGames(games);
-    // Sort by visits to ensure Arise Army Tycoon (highest) is featured
-    const featuredGame = [...games].sort((a, b) => b.visits - a.visits)[0];
+    // Prioritize explicitly featured game, then sort by visits
+    const featuredGame = games.find(g => {
+        const config = CONFIG.games.find(c => c.placeId === g.url.split('/').pop());
+        return config && config.featured;
+    }) || [...games].sort((a, b) => b.visits - a.visits)[0];
     renderFeaturedGame(featuredGame);
 
     const totalVisits = games.reduce((sum, g) => sum + g.visits, 0);
