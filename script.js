@@ -77,11 +77,11 @@ function animateCounter(el, target, duration = 2000) {
 }
 
 const PROXIES = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?'
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url='
 ];
 
-async function fetchWithTimeout(url, options, timeout = 7000) {
+async function fetchWithTimeout(url, options, timeout = 2500) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -120,8 +120,9 @@ const FALLBACK_GAMES = [
 
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
-    const cacheKey = 'roblox_cache_v7'; // Consistency check
-    const CACHE_TTL = 3600000; // Increase to 1 hour for better UX
+    // Dynamic cache key based on game setup to prevent "old version" bugs
+    const cacheKey = `roblox_cache_${gameConfigs.length}_${gameConfigs[0]?.placeId || 'v1'}`;
+    const CACHE_TTL = 3600000;
 
     try {
         // 1. Get Universe IDs
@@ -300,27 +301,24 @@ async function init() {
 
     // 1. INSTANT RENDER (Cache or Fallback)
     let initialGames = FALLBACK_GAMES;
-    const cacheKey = 'roblox_cache_v7';
+    const gameConfigs = CONFIG.games;
+    const cacheKey = `roblox_cache_${gameConfigs.length}_${gameConfigs[0]?.placeId || 'v1'}`;
+
     try {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
             const { data, timestamp } = JSON.parse(cached);
             initialGames = data;
-            // If cache is fresh (within 1 hr), we're good
-            if (Date.now() - timestamp < 3600000) {
-                updateUI(initialGames);
-                return;
-            }
+            // Removed early return to ensure BACKGROUND REVALIDATE always runs
         }
     } catch (e) { }
 
     // Show what we have immediately
     updateUI(initialGames);
 
-    // 2. BACKGROUND REVALIDATE (Silent Update)
+    // 2. BACKGROUND REVALIDATE (Always run to ensure versioning matches)
     const liveGames = await fetchGames();
     if (liveGames) {
-        // Only update if data is fresh and different
         updateUI(liveGames);
     }
 }
