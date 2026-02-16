@@ -77,11 +77,12 @@ function animateCounter(el, target, duration = 2000) {
 }
 
 const PROXIES = [
-    'https://corsproxy.io/?',
-    'https://api.allorigins.win/raw?url='
+    'https://api.allorigins.win/get?url=',
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://corsproxy.io/?' // Keep as fallback
 ];
 
-async function fetchWithTimeout(url, options, timeout = 2500) {
+async function fetchWithTimeout(url, options, timeout = 3000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -98,24 +99,68 @@ async function fetchWithRetry(path, query) {
     for (const proxy of PROXIES) {
         try {
             const baseUrl = path.startsWith('http') ? path : `https://games.roblox.com/v1/${path}`;
-            const url = proxy + encodeURIComponent(baseUrl + query);
+            const targetUrl = baseUrl + query;
+            const url = proxy.includes('allorigins')
+                ? `${proxy}${encodeURIComponent(targetUrl)}&timestamp=${Date.now()}`
+                : `${proxy}${targetUrl}`;
+
             const res = await fetchWithTimeout(url);
             if (res.ok) {
                 const data = await res.json();
-                return data.contents ? JSON.parse(data.contents) : data;
+                // AllOrigins wraps the result in a 'contents' string
+                if (data.contents) {
+                    try {
+                        return JSON.parse(data.contents);
+                    } catch (parseError) {
+                        return data.contents;
+                    }
+                }
+                return data;
             }
         } catch (e) {
-            console.warn(`Proxy ${proxy} failed for ${path}`);
+            console.warn(`Proxy ${proxy} failed for ${path}:`, e.message);
         }
     }
     throw new Error(`All proxies failed for ${path}`);
 }
 
 const FALLBACK_GAMES = [
-    { name: "Arise Army Tycoon", visits: 1000000, playing: 500, role: "Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/94282122066477" },
-    { name: "Obby But You're Glitched", visits: 235400, playing: 42, role: "Owner", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/130967462823996" },
-    { name: "Evolve [Sniffer!]", visits: 12000000, playing: 130, role: "Head Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/14958096162" },
-    { name: "Space Station Tycoon", visits: 2600000, playing: 15, role: "Developer", creator: "hohimihi", thumbnail: null, url: "https://www.roblox.com/games/13421499226" }
+    {
+        name: "Arise Army Tycoon",
+        visits: 1000000,
+        playing: 500,
+        role: "Developer",
+        creator: "hohimihi",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=94282122066477&width=768&height=432&format=png",
+        url: "https://www.roblox.com/games/94282122066477"
+    },
+    {
+        name: "Obby But You're Glitched",
+        visits: 235400,
+        playing: 42,
+        role: "Owner",
+        creator: "hohimihi",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=130967462823996&width=768&height=432&format=png",
+        url: "https://www.roblox.com/games/130967462823996"
+    },
+    {
+        name: "Evolve [Sniffer!]",
+        visits: 12100000,
+        playing: 130,
+        role: "Head Developer",
+        creator: "hohimihi",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=14958096162&width=768&height=432&format=png",
+        url: "https://www.roblox.com/games/14958096162"
+    },
+    {
+        name: "Space Station Tycoon",
+        visits: 2600000,
+        playing: 15,
+        role: "Developer",
+        creator: "hohimihi",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=13421499226&width=768&height=432&format=png",
+        url: "https://www.roblox.com/games/13421499226"
+    }
 ];
 
 async function fetchGames() {

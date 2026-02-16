@@ -18,6 +18,10 @@
     --youtube: #ff0000;
     --discord: #5865F2;
     --roblox: #ff4444;
+    --primary: #8b5cf6;
+    --primary-dark: #7c3aed;
+    --text-main: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.5);
 
     --border: rgba(255, 255, 255, 0.06);
     --border-hover: rgba(139, 92, 246, 0.5);
@@ -659,11 +663,11 @@ body {
 .game-thumb-wrap {
     width: 100%;
     aspect-ratio: 16 / 9;
-    background: linear-gradient(135deg, var(--bg-card), var(--bg-hover));
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover));
     /* Fallback gradient */
     overflow: hidden;
     position: relative;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border);
 }
 
 .game-thumb {
@@ -851,7 +855,7 @@ body {
     height: 48px;
     border-radius: 50%;
     overflow: hidden;
-    background: var(--bg-hover);
+    background: var(--bg-card-hover);
     display: flex;
     align-items: center;
     justify-content: center;
