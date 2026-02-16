@@ -5,7 +5,7 @@
 const CONFIG = {
     games: [
         { placeId: "94282122066477", universeId: "7811316908", role: "Head Developer", featured: true },
-        { placeId: "130967462823996", universeId: "4611295202", role: "Owner" },
+        { placeId: "130967462823996", universeId: "8023196202", role: "Owner" },
         { placeId: "14958096162", universeId: "5152857750", role: "Head Developer" },
         { placeId: "13421499226", universeId: "4671081879", role: "Developer" }
     ],
