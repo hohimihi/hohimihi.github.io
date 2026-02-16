@@ -15,21 +15,21 @@ const CONFIG = {
             text: "chill guy did a pretty nice job",
             name: "sapoperro",
             role: "Roblox Developer",
-            avatar: "https://www.roblox.com/headshot-thumbnail/image?userId=352535647&width=150&height=150&format=png",
+            avatar: "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=352535647&size=150x150&format=Png&isCircular=true",
             profileUrl: "https://www.roblox.com/users/352535647/profile"
         },
         {
             text: "Did an awesome job, polished everything up.",
             name: "Shrani_Blind",
             role: "Game Builder",
-            avatar: "https://www.roblox.com/headshot-thumbnail/image?userId=2357507092&width=150&height=150&format=png",
+            avatar: "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=2357507092&size=150x150&format=Png&isCircular=true",
             profileUrl: "https://www.roblox.com/users/2357507092/profile"
         },
         {
             text: "Reliable lad",
             name: "Drak",
             role: "Project Manager",
-            avatar: "https://www.roblox.com/headshot-thumbnail/image?userId=2328178033&width=150&height=150&format=png",
+            avatar: "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=2328178033&size=150x150&format=Png&isCircular=true",
             profileUrl: "https://www.roblox.com/users/2328178033/profile"
         }
     ],
@@ -267,8 +267,8 @@ function renderReviews() {
         <div class="review-card">
             <div class="review-header">
                 <a href="${r.profileUrl}" target="_blank" rel="noopener" class="review-link-wrapper">
-                    <div class="review-avatar">
-                        <img src="${r.avatar}" alt="${r.name}" onerror="this.onerror=null; this.src='profile.png'">
+                    <div class="review-avatar" data-userid="${r.profileUrl.split('/').reverse()[1]}">
+                        <img src="profile.png" alt="${r.name}" class="review-img">
                     </div>
                 </a>
                 <div class="review-meta">
@@ -282,6 +282,20 @@ function renderReviews() {
             <p class="review-text">"${r.text}"</p>
         </div>
     `).join('');
+
+    // Fetch review avatars via proxy to avoid 404/CORS issues
+    CONFIG.reviews.forEach((r, i) => {
+        const userId = r.profileUrl.split('/').reverse()[1];
+        const imgEl = stack.querySelectorAll('.review-img')[i];
+
+        fetchWithRetry('https://thumbnails.roblox.com/v1/users/avatar-headshot', `?userIds=${userId}&size=150x150&format=Png&isCircular=true`)
+            .then(data => {
+                if (data.data && data.data[0] && data.data[0].imageUrl) {
+                    imgEl.src = data.data[0].imageUrl;
+                }
+            })
+            .catch(e => Log.warn(`Failed to fetch review avatar for ${r.name}`));
+    });
 }
 
 function renderCollabs() {
