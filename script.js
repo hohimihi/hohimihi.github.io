@@ -4,10 +4,10 @@
 
 const CONFIG = {
     games: [
-        { placeId: "94282122066477", role: "Head Developer", featured: true },
-        { placeId: "130967462823996", role: "Owner" },
-        { placeId: "14958096162", role: "Head Developer" },
-        { placeId: "13421499226", role: "Developer" }
+        { placeId: "94282122066477", universeId: "7811316908", role: "Head Developer", featured: true },
+        { placeId: "130967462823996", universeId: "4611295202", role: "Owner" },
+        { placeId: "14958096162", universeId: "5152857750", role: "Head Developer" },
+        { placeId: "13421499226", universeId: "4671081879", role: "Developer" }
     ],
 
     reviews: [
@@ -130,7 +130,7 @@ const FALLBACK_GAMES = [
         playing: 500,
         role: "Developer",
         creator: "hohimihi",
-        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=94282122066477&width=768&height=432&format=png",
+        thumbnail: "https://tr.rbxcdn.com/7123184ca7873a0e9803bf2593976378/768/432/Image/Webp",
         url: "https://www.roblox.com/games/94282122066477"
     },
     {
@@ -139,7 +139,7 @@ const FALLBACK_GAMES = [
         playing: 42,
         role: "Owner",
         creator: "hohimihi",
-        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=130967462823996&width=768&height=432&format=png",
+        thumbnail: "https://tr.rbxcdn.com/264b38d380908866387063462d64f0f0/768/432/Image/Webp",
         url: "https://www.roblox.com/games/130967462823996"
     },
     {
@@ -148,7 +148,7 @@ const FALLBACK_GAMES = [
         playing: 130,
         role: "Head Developer",
         creator: "hohimihi",
-        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=14958096162&width=768&height=432&format=png",
+        thumbnail: "https://tr.rbxcdn.com/393b33362a2d48039703bf2593976378/768/432/Image/Webp",
         url: "https://www.roblox.com/games/14958096162"
     },
     {
@@ -157,36 +157,21 @@ const FALLBACK_GAMES = [
         playing: 15,
         role: "Developer",
         creator: "hohimihi",
-        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=13421499226&width=768&height=432&format=png",
+        thumbnail: "https://tr.rbxcdn.com/1523184ca7873a0e9803bf2593976378/768/432/Image/Webp",
         url: "https://www.roblox.com/games/13421499226"
     }
 ];
 
 async function fetchGames() {
     const gameConfigs = CONFIG.games;
-    // Dynamic cache key based on game setup to prevent "old version" bugs
-    const cacheKey = `roblox_cache_${gameConfigs.length}_${gameConfigs[0]?.placeId || 'v1'}`;
-    const CACHE_TTL = 3600000;
+    const cacheKey = `roblox_cache_${gameConfigs.length}_v2`;
+    const universeIds = gameConfigs.map(g => g.universeId).join(',');
 
     try {
-        // 1. Get Universe IDs
-        const universeResults = await Promise.all(gameConfigs.map(async config => {
-            try {
-                const data = await fetchWithRetry(`https://apis.roblox.com/universes/v1/places/${config.placeId}/universe`, '');
-                return { placeId: config.placeId, universeId: data.universeId, role: config.role };
-            } catch (e) {
-                return { placeId: config.placeId, universeId: null, role: config.role };
-            }
-        }));
-
-        const validUniverseIds = universeResults.map(r => r.universeId).filter(id => id);
-        if (validUniverseIds.length === 0) throw new Error('No valid universe IDs');
-        const uniqueIds = [...new Set(validUniverseIds)].join(',');
-
-        // 2. Fetch Detailed Info & Thumbnails
+        // 1. Fetch Detailed Info & Thumbnails in parallel
         const [gamesRes, thumbRes] = await Promise.all([
-            fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${uniqueIds}`),
-            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${uniqueIds}&countPerUniverse=1&size=768x432&format=Webp`)
+            fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${universeIds}`),
+            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=1&size=768x432&format=Webp`)
         ]);
 
         const gamesList = gamesRes.data || [];
@@ -198,10 +183,9 @@ async function fetchGames() {
             }
         });
 
-        // 3. Assemble Results
-        const finalGames = universeResults.map(ur => {
-            if (!ur.universeId) return null;
-            const gameData = gamesList.find(g => String(g.id) === String(ur.universeId));
+        // 2. Assemble Results
+        const finalGames = gameConfigs.map(config => {
+            const gameData = gamesList.find(g => String(g.id) === String(config.universeId));
             if (!gameData) return null;
 
             return {
@@ -209,9 +193,9 @@ async function fetchGames() {
                 creator: gameData.creator.name,
                 visits: gameData.visits,
                 playing: gameData.playing,
-                role: ur.role,
-                thumbnail: thumbsMap[ur.universeId] || null,
-                url: `https://www.roblox.com/games/${ur.placeId}`
+                role: config.role,
+                thumbnail: thumbsMap[config.universeId] || null,
+                url: `https://www.roblox.com/games/${config.placeId}`
             };
         }).filter(Boolean);
 
@@ -220,7 +204,7 @@ async function fetchGames() {
             return finalGames;
         }
     } catch (e) {
-        console.warn('Background sync failed:', e.message);
+        console.warn('Live fetch failed, using fallback/cache:', e.message);
     }
     return null;
 }
