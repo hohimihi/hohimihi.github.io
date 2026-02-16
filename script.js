@@ -15,21 +15,21 @@ const CONFIG = {
             text: "chill guy did a pretty nice job",
             name: "sapoperro",
             role: "Roblox Developer",
-            avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C87193AB6608680DAED0A274ABA660B6-Png/150/150/AvatarHeadshot/Webp/isCircular",
+            avatar: "https://www.roblox.com/headshot-thumbnail/image?userId=352535647&width=150&height=150&format=png",
             profileUrl: "https://www.roblox.com/users/352535647/profile"
         },
         {
             text: "Did an awesome job, polished everything up.",
             name: "Shrani_Blind",
             role: "Game Builder",
-            avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-784A29CE5C3330C731E594A20C8F2983-Png/150/150/AvatarHeadshot/Webp/isCircular",
+            avatar: "https://www.roblox.com/headshot-thumbnail/image?userId=2357507092&width=150&height=150&format=png",
             profileUrl: "https://www.roblox.com/users/2357507092/profile"
         },
         {
             text: "Reliable lad",
             name: "Drak",
             role: "Project Manager",
-            avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-558CD38F370DC1E74E87817FA51320C1-Png/150/150/AvatarHeadshot/Webp/isCircular",
+            avatar: "https://www.roblox.com/headshot-thumbnail/image?userId=2328178033&width=150&height=150&format=png",
             profileUrl: "https://www.roblox.com/users/2328178033/profile"
         }
     ],
@@ -219,9 +219,12 @@ function renderFeaturedGame(game) {
     const el = document.getElementById('featuredGame');
     if (!el || !game) return;
     const bgDiv = el.querySelector('.featured-bg');
-    if (game.thumbnail) bgDiv.style.backgroundImage = `url(${game.thumbnail})`;
+    if (game.thumbnail) {
+        bgDiv.style.backgroundImage = `url(${game.thumbnail})`;
+        bgDiv.style.opacity = '1';
+    }
     el.querySelector('.featured-title').textContent = game.name;
-    el.querySelector('.featured-role').textContent = `${game.role} • ${formatNumber(game.visits)} visits • ${formatNumber(game.playing)} playing`;
+    el.querySelector('.featured-role').textContent = `${game.role} • ${formatNumber(game.visits)} visits`;
     el.onclick = () => window.open(game.url, '_blank');
 }
 
@@ -229,9 +232,11 @@ function renderGames(games) {
     const grid = document.getElementById('gamesGrid');
     if (!grid) return;
     grid.innerHTML = games.map(game => `
-        <a href="${game.url}" target="_blank" class="game-card">
+        <a href="${game.url}" target="_blank" class="game-card loaded">
             <div class="game-thumb-wrap">
-                <img class="game-thumb" src="${game.thumbnail || ''}" alt="${game.name}" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; this.classList.add('broken');">
+                <img class="game-thumb" src="${game.thumbnail || ''}" alt="${game.name}" 
+                     onload="this.style.opacity='1'"
+                     onerror="this.src='https://www.roblox.com/asset-thumbnail/image?assetId=' + this.closest('a').href.split('/').pop() + '&width=768&height=432&format=png'">
             </div>
             <div class="game-info">
                 <div class="game-name">${game.name}</div>
@@ -241,10 +246,6 @@ function renderGames(games) {
                         <span class="game-stat">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             ${formatNumber(game.visits)}
-                        </span>
-                        <span class="game-stat">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                            ${formatNumber(game.playing)}
                         </span>
                     </div>
                     <span class="game-role-tag">${game.role}</span>
@@ -341,6 +342,11 @@ async function init() {
         renderCollabs();
         initMobileMenu();
 
+        // Safety: ensure loading state clears after 5s max
+        setTimeout(() => {
+            document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
+        }, 5000);
+
         // 1. INSTANT RENDER
         Log.info('Rendering initial fallback/cached data');
         let initialGames = FALLBACK_GAMES;
@@ -365,6 +371,7 @@ async function init() {
         }
     } catch (e) {
         Log.error(`Critical Init Error: ${e.message}`);
+        updateUI(FALLBACK_GAMES); // Emergency fallback
     }
 }
 
