@@ -232,11 +232,10 @@ function renderGames(games) {
     const grid = document.getElementById('gamesGrid');
     if (!grid) return;
     grid.innerHTML = games.map(game => `
-        <a href="${game.url}" target="_blank" class="game-card loaded">
+        <a href="${game.url}" target="_blank" class="game-card">
             <div class="game-thumb-wrap">
                 <img class="game-thumb" src="${game.thumbnail || ''}" alt="${game.name}" 
-                     onload="this.style.opacity='1'"
-                     onerror="this.src='https://www.roblox.com/asset-thumbnail/image?assetId=' + this.closest('a').href.split('/').pop() + '&width=768&height=432&format=png'">
+                     onerror="this.onerror=null; this.src='https://www.roblox.com/asset-thumbnail/image?assetId=' + this.closest('a').href.split('/').pop() + '&width=768&height=432&format=png'">
             </div>
             <div class="game-info">
                 <div class="game-name">${game.name}</div>
@@ -269,7 +268,7 @@ function renderReviews() {
             <div class="review-header">
                 <a href="${r.profileUrl}" target="_blank" rel="noopener" class="review-link-wrapper">
                     <div class="review-avatar">
-                        <img src="${r.avatar}" alt="${r.name}" onerror="this.src='https://www.roblox.com/headshot-thumbnail/image?userId=1&width=48&height=48&format=png'">
+                        <img src="${r.avatar}" alt="${r.name}" onerror="this.onerror=null; this.src='profile.png'">
                     </div>
                 </a>
                 <div class="review-meta">
