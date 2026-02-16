@@ -77,9 +77,8 @@ function animateCounter(el, target, duration = 2000) {
 }
 
 const PROXIES = [
-    'https://api.allorigins.win/get?url=',
     'https://api.codetabs.com/v1/proxy?quest=',
-    'https://corsproxy.io/?' // Keep as fallback
+    'https://corsproxy.io/?'
 ];
 
 async function fetchWithTimeout(url, options, timeout = 3000) {
