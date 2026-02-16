@@ -51,7 +51,15 @@ const CONFIG = {
             videoUrl: "https://www.youtube.com/watch?v=mNzZROdUA7Y",
             avatar: "https://yt3.googleusercontent.com/_gZfISAhDSvPL-ayo04b2wVNoJlWsWezFdoVtdhNnlNHy3Eih3zDtO1s-H2ku_6p28RXAaL_DzU=s800-c-k-c0x00ffffff-no-rj"
         }
-    ]
+    ],
+
+    debug: true // Toggle this to see log in console
+};
+
+const Log = {
+    info: (msg) => { if (CONFIG.debug) console.log(`%c[INFO] ${msg}`, 'color: #8b5cf6'); },
+    warn: (msg) => { if (CONFIG.debug) console.warn(`[WARN] ${msg}`); },
+    error: (msg) => { if (CONFIG.debug) console.error(`[ERROR] ${msg}`); }
 };
 
 function formatNumber(num) {
@@ -78,7 +86,8 @@ function animateCounter(el, target, duration = 2000) {
 
 const PROXIES = [
     'https://api.codetabs.com/v1/proxy?quest=',
-    'https://corsproxy.io/?'
+    'https://corsproxy.io/?url=',
+    'https://thingproxy.freeboard.io/fetch/'
 ];
 
 async function fetchWithTimeout(url, options, timeout = 3000) {
@@ -95,29 +104,26 @@ async function fetchWithTimeout(url, options, timeout = 3000) {
 }
 
 async function fetchWithRetry(path, query) {
+    const targetUrl = path.startsWith('http') ? path + query : `https://games.roblox.com/v1/${path}${query}`;
+
     for (const proxy of PROXIES) {
         try {
-            const baseUrl = path.startsWith('http') ? path : `https://games.roblox.com/v1/${path}`;
-            const targetUrl = baseUrl + query;
-            const url = proxy.includes('allorigins')
-                ? `${proxy}${encodeURIComponent(targetUrl)}&timestamp=${Date.now()}`
-                : `${proxy}${targetUrl}`;
-
+            Log.info(`Trying proxy: ${proxy}`);
+            const url = proxy + encodeURIComponent(targetUrl);
             const res = await fetchWithTimeout(url);
+
             if (res.ok) {
-                const data = await res.json();
-                // AllOrigins wraps the result in a 'contents' string
-                if (data.contents) {
-                    try {
-                        return JSON.parse(data.contents);
-                    } catch (parseError) {
-                        return data.contents;
-                    }
+                const text = await res.text();
+                try {
+                    const data = JSON.parse(text);
+                    Log.info(`Successfully fetched via ${proxy}`);
+                    return data.contents ? JSON.parse(data.contents) : data;
+                } catch (e) {
+                    Log.warn(`Failed to parse JSON from ${proxy}`);
                 }
-                return data;
             }
         } catch (e) {
-            console.warn(`Proxy ${proxy} failed for ${path}:`, e.message);
+            Log.warn(`Proxy ${proxy} failed: ${e.message}`);
         }
     }
     throw new Error(`All proxies failed for ${path}`);
@@ -130,7 +136,7 @@ const FALLBACK_GAMES = [
         playing: 500,
         role: "Developer",
         creator: "hohimihi",
-        thumbnail: "https://tr.rbxcdn.com/7123184ca7873a0e9803bf2593976378/768/432/Image/Webp",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=94282122066477&width=768&height=432&format=png",
         url: "https://www.roblox.com/games/94282122066477"
     },
     {
@@ -139,7 +145,7 @@ const FALLBACK_GAMES = [
         playing: 42,
         role: "Owner",
         creator: "hohimihi",
-        thumbnail: "https://tr.rbxcdn.com/264b38d380908866387063462d64f0f0/768/432/Image/Webp",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=130967462823996&width=768&height=432&format=png",
         url: "https://www.roblox.com/games/130967462823996"
     },
     {
@@ -148,7 +154,7 @@ const FALLBACK_GAMES = [
         playing: 130,
         role: "Head Developer",
         creator: "hohimihi",
-        thumbnail: "https://tr.rbxcdn.com/393b33362a2d48039703bf2593976378/768/432/Image/Webp",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=14958096162&width=768&height=432&format=png",
         url: "https://www.roblox.com/games/14958096162"
     },
     {
@@ -157,7 +163,7 @@ const FALLBACK_GAMES = [
         playing: 15,
         role: "Developer",
         creator: "hohimihi",
-        thumbnail: "https://tr.rbxcdn.com/1523184ca7873a0e9803bf2593976378/768/432/Image/Webp",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=13421499226&width=768&height=432&format=png",
         url: "https://www.roblox.com/games/13421499226"
     }
 ];
@@ -327,31 +333,38 @@ function updateUI(games) {
 }
 
 async function init() {
-    renderReviews();
-    renderCollabs();
-    initMobileMenu();
-
-    // 1. INSTANT RENDER (Cache or Fallback)
-    let initialGames = FALLBACK_GAMES;
-    const gameConfigs = CONFIG.games;
-    const cacheKey = `roblox_cache_${gameConfigs.length}_${gameConfigs[0]?.placeId || 'v1'}`;
-
     try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            const { data, timestamp } = JSON.parse(cached);
-            initialGames = data;
-            // Removed early return to ensure BACKGROUND REVALIDATE always runs
+        if (window.location.search.includes('debug')) CONFIG.debug = true;
+        Log.info('Initializing portfolio...');
+
+        renderReviews();
+        renderCollabs();
+        initMobileMenu();
+
+        // 1. INSTANT RENDER
+        Log.info('Rendering initial fallback/cached data');
+        let initialGames = FALLBACK_GAMES;
+        const cacheKey = `roblox_cache_${CONFIG.games.length}_v2`;
+
+        try {
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                const { data } = JSON.parse(cached);
+                if (Array.isArray(data)) initialGames = data;
+            }
+        } catch (e) { Log.warn('Cache read failed'); }
+
+        updateUI(initialGames);
+
+        // 2. BACKGROUND REVALIDATE
+        Log.info('Starting background validation...');
+        const liveGames = await fetchGames();
+        if (liveGames) {
+            Log.info('Updating UI with live data');
+            updateUI(liveGames);
         }
-    } catch (e) { }
-
-    // Show what we have immediately
-    updateUI(initialGames);
-
-    // 2. BACKGROUND REVALIDATE (Always run to ensure versioning matches)
-    const liveGames = await fetchGames();
-    if (liveGames) {
-        updateUI(liveGames);
+    } catch (e) {
+        Log.error(`Critical Init Error: ${e.message}`);
     }
 }
 
