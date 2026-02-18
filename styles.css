@@ -59,6 +59,64 @@ body {
     padding: 0 20px;
 }
 
+.thumbnail-mosaic {
+    position: fixed;
+    inset: -50%;
+    width: 200%;
+    height: 200%;
+    transform: rotate(-15deg);
+    pointer-events: none;
+    z-index: -3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+    opacity: 0.12;
+}
+
+.mosaic-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -2;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, transparent 20%, var(--bg-dark) 70%),
+        linear-gradient(to bottom, var(--bg-dark) 0%, transparent 15%, transparent 85%, var(--bg-dark) 100%);
+}
+
+.mosaic-row {
+    display: flex;
+    gap: 16px;
+    width: max-content;
+    flex-shrink: 0;
+}
+
+.mosaic-row img {
+    width: 280px;
+    height: 158px;
+    object-fit: cover;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.mosaic-row:nth-child(odd) {
+    animation: mosaic-scroll-left var(--speed) linear infinite;
+}
+
+.mosaic-row:nth-child(even) {
+    animation: mosaic-scroll-right var(--speed) linear infinite;
+}
+
+@keyframes mosaic-scroll-left {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+@keyframes mosaic-scroll-right {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+}
+
 .bg-gradient {
     position: fixed;
     inset: 0;

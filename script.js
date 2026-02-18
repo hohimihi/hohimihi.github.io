@@ -7,7 +7,8 @@ const CONFIG = {
         { placeId: "94282122066477", universeId: "7811316908", role: "Head Developer", featured: true },
         { placeId: "130967462823996", universeId: "8023196202", role: "Owner" },
         { placeId: "14958096162", universeId: "5152857750", role: "Head Developer" },
-        { placeId: "13421499226", universeId: "4671081879", role: "Developer" }
+        { placeId: "13421499226", universeId: "4671081879", role: "Developer" },
+        { placeId: "100989019560808", universeId: "9439392511", role: "Developer" }
     ],
 
     reviews: [
@@ -165,6 +166,15 @@ const FALLBACK_GAMES = [
         creator: "hohimihi",
         thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=13421499226&width=768&height=432&format=png",
         url: "https://www.roblox.com/games/13421499226"
+    },
+    {
+        name: "Knife or Die",
+        visits: 0,
+        playing: 0,
+        role: "Developer",
+        creator: "Unknown",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=100989019560808&width=768&height=432&format=png",
+        url: "https://www.roblox.com/games/100989019560808"
     }
 ];
 
@@ -177,15 +187,19 @@ async function fetchGames() {
         // 1. Fetch Detailed Info & Thumbnails in parallel
         const [gamesRes, thumbRes] = await Promise.all([
             fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${universeIds}`),
-            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=1&size=768x432&format=Webp`)
+            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=10&size=768x432&format=Webp`)
         ]);
 
         const gamesList = gamesRes.data || [];
         const thumbsList = thumbRes.data || [];
         const thumbsMap = {};
+        const allThumbnails = [];
         thumbsList.forEach(item => {
-            if (item.universeId && item.thumbnails?.[0]?.imageUrl) {
+            if (item.universeId && item.thumbnails?.length) {
                 thumbsMap[item.universeId] = item.thumbnails[0].imageUrl;
+                item.thumbnails.forEach(t => {
+                    if (t.imageUrl) allThumbnails.push(t.imageUrl);
+                });
             }
         });
 
@@ -206,8 +220,8 @@ async function fetchGames() {
         }).filter(Boolean);
 
         if (finalGames.length > 0) {
-            localStorage.setItem(cacheKey, JSON.stringify({ data: finalGames, timestamp: Date.now() }));
-            return finalGames;
+            localStorage.setItem(cacheKey, JSON.stringify({ data: finalGames, allThumbnails, timestamp: Date.now() }));
+            return { games: finalGames, allThumbnails };
         }
     } catch (e) {
         console.warn('Live fetch failed, using fallback/cache:', e.message);
@@ -333,17 +347,15 @@ function initMobileMenu() {
     });
 }
 
-function updateUI(games) {
+function updateUI(games, allThumbnails) {
     if (!games) return;
     Log.info('Updating UI with games data');
 
-    // Clear skeletons
     const grid = document.getElementById('gamesGrid');
     if (grid) grid.classList.add('loaded');
 
     renderGames(games);
 
-    // Prioritize explicitly featured game, then sort by visits
     const featuredGame = games.find(g => {
         const config = CONFIG.games.find(c => c.placeId === g.url.split('/').pop());
         return config && config.featured;
@@ -354,6 +366,11 @@ function updateUI(games) {
     const heroVisitsEl = document.getElementById('heroVisits');
     if (heroVisitsEl) {
         animateCounter(heroVisitsEl, totalVisits, 2000);
+    }
+
+    const thumbs = allThumbnails || games.map(g => g.thumbnail).filter(Boolean);
+    if (thumbs.length && !document.querySelector('.mosaic-row')) {
+        buildMosaic(thumbs);
     }
 }
 
@@ -374,28 +391,57 @@ async function init() {
         // 1. INSTANT RENDER
         Log.info('Rendering initial fallback/cached data');
         let initialGames = FALLBACK_GAMES;
+        let initialThumbs = null;
         const cacheKey = `roblox_cache_${CONFIG.games.length}_v2`;
 
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
-                const { data } = JSON.parse(cached);
-                if (Array.isArray(data)) initialGames = data;
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed.data)) initialGames = parsed.data;
+                if (Array.isArray(parsed.allThumbnails)) initialThumbs = parsed.allThumbnails;
             }
         } catch (e) { Log.warn('Cache read failed'); }
 
-        updateUI(initialGames);
+        updateUI(initialGames, initialThumbs);
 
-        // 2. BACKGROUND REVALIDATE
         Log.info('Starting background validation...');
-        const liveGames = await fetchGames();
-        if (liveGames) {
+        const liveResult = await fetchGames();
+        if (liveResult) {
             Log.info('Updating UI with live data');
-            updateUI(liveGames);
+            updateUI(liveResult.games, liveResult.allThumbnails);
         }
     } catch (e) {
         Log.error(`Critical Init Error: ${e.message}`);
         updateUI(FALLBACK_GAMES); // Emergency fallback
+    }
+}
+
+function buildMosaic(thumbnails) {
+    const container = document.getElementById('thumbnailMosaic');
+    if (!container || !thumbnails.length) return;
+
+    container.innerHTML = '';
+    const rowCount = 6;
+    const speeds = [180, 140, 200, 160, 190, 150];
+
+    for (let i = 0; i < rowCount; i++) {
+        const row = document.createElement('div');
+        row.className = 'mosaic-row';
+        row.style.setProperty('--speed', speeds[i] + 's');
+
+        const shuffled = [...thumbnails].sort(() => Math.random() - 0.5);
+        const repeated = [...shuffled, ...shuffled, ...shuffled, ...shuffled];
+
+        repeated.forEach(url => {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = '';
+            img.loading = 'lazy';
+            row.appendChild(img);
+        });
+
+        container.appendChild(row);
     }
 }
 
