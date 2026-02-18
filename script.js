@@ -360,6 +360,7 @@ function updateUI(games, allThumbnails) {
     const grid = document.getElementById('gamesGrid');
     if (grid) grid.classList.add('loaded');
 
+    games.sort((a, b) => b.playing - a.playing);
     renderGames(games);
 
     const featuredGame = games.find(g => {
