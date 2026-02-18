@@ -61,17 +61,23 @@ body {
 
 .thumbnail-mosaic {
     position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -3;
+    overflow: hidden;
+    opacity: 0.12;
+}
+
+.mosaic-inner {
+    position: absolute;
     inset: -50%;
     width: 200%;
     height: 200%;
     transform: rotate(-15deg);
-    pointer-events: none;
-    z-index: -3;
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 16px;
-    opacity: 0.12;
 }
 
 .mosaic-overlay {

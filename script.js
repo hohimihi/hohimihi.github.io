@@ -429,26 +429,45 @@ function buildMosaic(thumbnails) {
     if (!container || !thumbnails.length) return;
 
     container.innerHTML = '';
+    const inner = document.createElement('div');
+    inner.className = 'mosaic-inner';
+
     const rowCount = 6;
     const speeds = [180, 140, 200, 160, 190, 150];
 
-    for (let i = 0; i < rowCount; i++) {
-        const row = document.createElement('div');
-        row.className = 'mosaic-row';
-        row.style.setProperty('--speed', speeds[i] + 's');
-
-        const shuffled = [...thumbnails].sort(() => Math.random() - 0.5);
-        const repeated = [...shuffled, ...shuffled];
-
-        repeated.forEach(url => {
-            const img = document.createElement('img');
+    const preloads = thumbnails.map(url => {
+        return new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => resolve(url);
+            img.onerror = () => resolve(null);
             img.src = url;
-            img.alt = '';
-            row.appendChild(img);
         });
+    });
 
-        container.appendChild(row);
-    }
+    Promise.all(preloads).then(loaded => {
+        const valid = loaded.filter(Boolean);
+        if (!valid.length) return;
+
+        for (let i = 0; i < rowCount; i++) {
+            const row = document.createElement('div');
+            row.className = 'mosaic-row';
+            row.style.setProperty('--speed', speeds[i] + 's');
+
+            const shuffled = [...valid].sort(() => Math.random() - 0.5);
+            const repeated = [...shuffled, ...shuffled];
+
+            repeated.forEach(url => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = '';
+                row.appendChild(img);
+            });
+
+            inner.appendChild(row);
+        }
+
+        container.appendChild(inner);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', init);
