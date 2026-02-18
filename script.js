@@ -185,18 +185,24 @@ async function fetchGames() {
 
     try {
         // 1. Fetch Detailed Info & Thumbnails in parallel
-        const [gamesRes, thumbRes] = await Promise.all([
+        const [gamesRes, thumbRes, mosaicThumbRes] = await Promise.all([
             fetchWithRetry('https://games.roblox.com/v1/games', `?universeIds=${universeIds}`),
-            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=10&size=768x432&format=Webp`)
+            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=1&size=768x432&format=Webp`),
+            fetchWithRetry('https://thumbnails.roblox.com/v1/games/multiget/thumbnails', `?universeIds=${universeIds}&countPerUniverse=10&size=480x270&format=Webp`)
         ]);
 
         const gamesList = gamesRes.data || [];
         const thumbsList = thumbRes.data || [];
         const thumbsMap = {};
-        const allThumbnails = [];
         thumbsList.forEach(item => {
-            if (item.universeId && item.thumbnails?.length) {
+            if (item.universeId && item.thumbnails?.[0]?.imageUrl) {
                 thumbsMap[item.universeId] = item.thumbnails[0].imageUrl;
+            }
+        });
+
+        const allThumbnails = [];
+        (mosaicThumbRes.data || []).forEach(item => {
+            if (item.thumbnails?.length) {
                 item.thumbnails.forEach(t => {
                     if (t.imageUrl) allThumbnails.push(t.imageUrl);
                 });
@@ -431,13 +437,12 @@ function buildMosaic(thumbnails) {
         row.style.setProperty('--speed', speeds[i] + 's');
 
         const shuffled = [...thumbnails].sort(() => Math.random() - 0.5);
-        const repeated = [...shuffled, ...shuffled, ...shuffled, ...shuffled];
+        const repeated = [...shuffled, ...shuffled];
 
         repeated.forEach(url => {
             const img = document.createElement('img');
             img.src = url;
             img.alt = '';
-            img.loading = 'lazy';
             row.appendChild(img);
         });
 
