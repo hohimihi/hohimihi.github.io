@@ -85,49 +85,20 @@ function animateCounter(el, target, duration = 2000) {
     requestAnimationFrame(update);
 }
 
-const PROXIES = [
-    'https://api.codetabs.com/v1/proxy?quest=',
-    'https://corsproxy.io/?url=',
-    'https://thingproxy.freeboard.io/fetch/'
-];
-
-async function fetchWithTimeout(url, options, timeout = 3000) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-        const response = await fetch(url, { ...options, signal: controller.signal });
-        clearTimeout(id);
-        return response;
-    } catch (e) {
-        clearTimeout(id);
-        throw e;
-    }
-}
+const PROXY_BASE = 'https://roblox-proxy.hohimihi.workers.dev';
 
 async function fetchWithRetry(path, query) {
     const targetUrl = path.startsWith('http') ? path + query : `https://games.roblox.com/v1/${path}${query}`;
+    const url = `${PROXY_BASE}/?url=${encodeURIComponent(targetUrl)}`;
 
-    for (const proxy of PROXIES) {
-        try {
-            Log.info(`Trying proxy: ${proxy}`);
-            const url = proxy + encodeURIComponent(targetUrl);
-            const res = await fetchWithTimeout(url);
+    Log.info(`Fetching via proxy: ${targetUrl}`);
+    const res = await fetch(url);
 
-            if (res.ok) {
-                const text = await res.text();
-                try {
-                    const data = JSON.parse(text);
-                    Log.info(`Successfully fetched via ${proxy}`);
-                    return data.contents ? JSON.parse(data.contents) : data;
-                } catch (e) {
-                    Log.warn(`Failed to parse JSON from ${proxy}`);
-                }
-            }
-        } catch (e) {
-            Log.warn(`Proxy ${proxy} failed: ${e.message}`);
-        }
-    }
-    throw new Error(`All proxies failed for ${path}`);
+    if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
+
+    const data = await res.json();
+    Log.info('Successfully fetched data');
+    return data;
 }
 
 const FALLBACK_GAMES = [
