@@ -8,7 +8,8 @@ const CONFIG = {
         { placeId: "130967462823996", universeId: "8023196202", role: "Owner" },
         { placeId: "14958096162", universeId: "5152857750", role: "Head Developer" },
         { placeId: "13421499226", universeId: "4671081879", role: "Developer" },
-        { placeId: "100989019560808", universeId: "9439392511", role: "Developer" }
+        { placeId: "100989019560808", universeId: "9439392511", role: "Developer" },
+        { placeId: "86872309637437", universeId: "10461951366", role: "Owner" }
     ],
 
     reviews: [
@@ -146,6 +147,15 @@ const FALLBACK_GAMES = [
         creator: "Unknown",
         thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=100989019560808&width=768&height=432&format=png",
         url: "https://www.roblox.com/games/100989019560808"
+    },
+    {
+        name: "+1 FLAME RUNNER 🔥",
+        visits: 440397,
+        playing: 190,
+        role: "Owner",
+        creator: "RedPixel Gaming",
+        thumbnail: "https://www.roblox.com/asset-thumbnail/image?assetId=86872309637437&width=768&height=432&format=png",
+        url: "https://www.roblox.com/games/86872309637437"
     }
 ];
 
